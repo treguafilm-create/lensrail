@@ -249,6 +249,7 @@
     <div style="flex:1"></div>
     <div class="live off" id="live"><span class="pip"></span><span id="live-txt">Private</span></div>
     <button id="btn-share">Share for editing</button>
+    <button id="btn-sync" class="ghost" title="Pull the latest changes now">Sync now</button>
     <button id="btn-join" class="ghost">Join a film</button>
   </div>
 
@@ -448,20 +449,29 @@ function save(){
     catch(e){storageOK=false;}
   },400);
 }
+function editingNow(){
+  const a=document.activeElement;if(!a)return false;
+  const t=a.tagName;
+  return t==="INPUT"||t==="SELECT"||t==="TEXTAREA"||a.isContentEditable;
+}
+async function syncNow(manual){
+  if(!P||!(P.shared||CLOUD)){if(manual)toast("No backend configured — nothing to sync");return;}
+  try{
+    const remote=await sGet(pKey(P),!!P.shared);
+    if(remote&&remote.ts>P.ts){
+      P=remote;
+      const m=IDX.projects.find(x=>x.id===P.id);if(m)m.title=P.title;
+      render();toast("Updated with the latest changes");
+    }else if(manual)toast("Already up to date");
+  }catch(e){if(manual)toast("Could not reach the backend");}
+}
 function startPoll(){
   clearInterval(pollTimer);
-  if(!P||!P.shared)return;
-  pollTimer=setInterval(async()=>{
-    if(Date.now()-lastTouch<3000||boardShot)return;
-    try{
-      const remote=await sGet("lensrail:room:"+P.room,true);
-      if(remote&&remote.ts>P.ts){
-        P=remote;
-        const t=document.activeElement&&document.activeElement.tagName;
-        if(t!=="INPUT"&&t!=="SELECT"){render();toast("Updated from the shared copy");}
-      }
-    }catch(e){}
-  },5000);
+  if(!P||!(P.shared||CLOUD))return;
+  pollTimer=setInterval(()=>{
+    if(Date.now()-lastTouch<2500||boardShot||player||editingNow())return;
+    syncNow(false);
+  },4000);
 }
 
 /* ================= optics maths ================= */
@@ -1599,6 +1609,8 @@ function render(){
     b.style.cssText="border:1px solid var(--flag);color:var(--flag);background:var(--slip);padding:8px 11px;margin:10px 0;font-size:11px;letter-spacing:.04em";
     document.querySelector(".projbar").after(b);
   }
+  window.addEventListener("focus",()=>{if(!editingNow())syncNow(false);});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!editingNow())syncNow(false);});
   window.addEventListener("beforeunload",e=>{
     if(dirty&&!storageOK){e.preventDefault();e.returnValue="";}
   });
@@ -1611,8 +1623,8 @@ function render(){
   $("#proj-new").onclick=async()=>{
     const np=newProject("Untitled film");
     IDX.projects.push({id:np.id,title:np.title,shared:false,room:null});
-    P=np;IDX.active=np.id;active=0;mode="shots";clearInterval(pollTimer);
-    await saveIndex();save();render();$("#proj-title").focus();
+    P=np;IDX.active=np.id;active=0;mode="board";
+    await saveIndex();save();startPoll();render();$("#proj-title").focus();
   };
   $("#proj-del").onclick=async()=>{
     if(IDX.projects.length===1){toast("Keep at least one film");return;}
@@ -1623,6 +1635,7 @@ function render(){
   };
   $("#proj-save").onclick=exportProjectFile;
   $("#proj-open").onclick=importProjectFile;
+  $("#btn-sync").onclick=()=>syncNow(true);
   $("#btn-share").onclick=makeShared;
   $("#btn-join").onclick=joinShared;
   $("#btn-csv").onclick=csv;
