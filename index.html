@@ -447,7 +447,7 @@ function save(){
   saveT=setTimeout(async()=>{
     try{await sSet(pKey(P),P,P.shared);await saveIndex();dirty=false;storageOK=true;}
     catch(e){storageOK=false;}
-  },400);
+  },250);
 }
 function editingNow(){
   const a=document.activeElement;if(!a)return false;
@@ -465,13 +465,59 @@ async function syncNow(manual){
     }else if(manual)toast("Already up to date");
   }catch(e){if(manual)toast("Could not reach the backend");}
 }
+/* lightweight change check: ask only for the timestamp, fetch the body only if it moved */
+let lastStamp=null,rtSock=null,rtRef=0,rtBeat=null,rtLive=false;
+async function remoteStamp(){
+  if(!CLOUD)return null;
+  const rows=await api("kv?key=eq."+encodeURIComponent(nsKey(pKey(P),!!P.shared))+"&select=updated_at");
+  return rows&&rows[0]?rows[0].updated_at:null;
+}
 function startPoll(){
   clearInterval(pollTimer);
   if(!P||!(P.shared||CLOUD))return;
-  pollTimer=setInterval(()=>{
-    if(Date.now()-lastTouch<2500||boardShot||player||editingNow())return;
-    syncNow(false);
-  },4000);
+  lastStamp=null;
+  connectRealtime();
+  pollTimer=setInterval(async()=>{
+    if(boardShot||player||editingNow()||Date.now()-lastTouch<1200)return;
+    if(rtLive)return;                       /* websocket is carrying it */
+    try{
+      const st=await remoteStamp();
+      if(st&&lastStamp&&st!==lastStamp)await syncNow(false);
+      lastStamp=st;
+    }catch(e){}
+  },1500);
+}
+
+/* Supabase Realtime — instant push over a websocket */
+function connectRealtime(){
+  if(!CLOUD||rtSock)return;
+  try{
+    const host=SUPA_URL.replace(/^https?:\/\//,"");
+    rtSock=new WebSocket("wss://"+host+"/realtime/v1/websocket?apikey="+encodeURIComponent(SUPA_KEY)+"&vsn=1.0.0");
+    rtSock.onopen=()=>{
+      rtSock.send(JSON.stringify({topic:"realtime:public:kv",event:"phx_join",ref:String(++rtRef),
+        payload:{config:{postgres_changes:[{event:"*",schema:"public",table:"kv"}]}}}));
+      clearInterval(rtBeat);
+      rtBeat=setInterval(()=>{
+        if(rtSock&&rtSock.readyState===1)
+          rtSock.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:String(++rtRef)}));
+      },25000);
+    };
+    rtSock.onmessage=ev=>{
+      let msg;try{msg=JSON.parse(ev.data);}catch(e){return;}
+      if(msg.event==="phx_reply"&&msg.payload&&msg.payload.status==="ok"&&msg.topic==="realtime:public:kv"){rtLive=true;renderProjBar();}
+      if(msg.event==="postgres_changes"){
+        const rec=msg.payload&&msg.payload.data&&(msg.payload.data.record||msg.payload.data.old_record);
+        const mine=nsKey(pKey(P),!!P.shared);
+        if(rec&&rec.key===mine&&!editingNow()&&!boardShot&&Date.now()-lastTouch>800)syncNow(false);
+      }
+    };
+    rtSock.onclose=()=>{
+      rtLive=false;rtSock=null;clearInterval(rtBeat);
+      setTimeout(()=>{if(P&&(P.shared||CLOUD))connectRealtime();},3000);
+    };
+    rtSock.onerror=()=>{rtLive=false;};
+  }catch(e){rtLive=false;rtSock=null;}
 }
 
 /* ================= optics maths ================= */
@@ -1549,7 +1595,7 @@ function renderProjBar(){
   $("#proj-title").value=P.title;
   const live=$("#live");
   live.className="live"+(P.shared?"":" off");
-  $("#live-txt").textContent=P.shared?("Shared · "+P.room):(CLOUD?("Cloud · "+whoami()):"Private");
+  $("#live-txt").textContent=P.shared?("Shared · "+P.room):(CLOUD?((rtLive?"Live · ":"Cloud · ")+whoami()):"Private");
   $("#btn-share").textContent=P.shared?"Show code":"Share for editing";
 }
 async function makeShared(){
