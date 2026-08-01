@@ -98,7 +98,7 @@
   .icon{border:1px solid var(--hair);color:var(--steel);padding:8px 11px;font-size:13px;line-height:1}
   .icon:hover{background:var(--flag);border-color:var(--flag);color:var(--slip)}
   .framewrap{display:flex;flex-direction:column;gap:3px;flex:none}
-  .frame{width:186px;height:105px;border:1px solid var(--hair);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--steel);letter-spacing:.08em;text-align:center;overflow:hidden;padding:0}
+  .frame{width:186px;aspect-ratio:var(--ar,16/9);border:1px solid var(--hair);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--steel);letter-spacing:.08em;text-align:center;overflow:hidden;padding:0}
   .frame img,.frame svg{width:100%;height:100%;object-fit:cover;display:block}
   .frame:hover{background:#fff;color:var(--brass);border-color:var(--brass)}
   .framewrap .mini{display:flex;gap:3px}
@@ -176,7 +176,7 @@
   .sb-panel{display:flex;flex-direction:column;gap:5px}
   .sb-head{display:flex;justify-content:space-between;align-items:baseline;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--steel)}
   .sb-head b{font-family:var(--disp);font-size:11px;font-weight:500;letter-spacing:.1em;color:var(--ink)}
-  .sb-frame{aspect-ratio:16/9;border:1px solid var(--ink);background:var(--chipbg);overflow:hidden;position:relative;cursor:pointer;padding:0;width:100%;display:block}
+  .sb-frame{aspect-ratio:var(--ar,16/9);border:1px solid var(--ink);background:var(--chipbg);overflow:hidden;position:relative;cursor:pointer;padding:0;width:100%;display:block}
   .sb-frame img,.sb-frame svg{width:100%;height:100%;object-fit:cover;display:block}
   .sb-frame:hover{border-color:var(--brass)}
   .sb-frame .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel)}
@@ -186,7 +186,7 @@
   .sb-tools{display:flex;gap:4px}
   .sb-tools button{flex:1;font-size:9px;padding:4px 0;border-color:var(--hair);color:var(--steel);letter-spacing:.06em}
   .sb-tools button:hover{background:var(--bottle);color:var(--slip);border-color:var(--bottle)}
-  .sb-add{border:1px dashed var(--hair);color:var(--brass);aspect-ratio:16/9;width:100%;font-size:11px}
+  .sb-add{border:1px dashed var(--hair);color:var(--brass);aspect-ratio:var(--ar,16/9);width:100%;font-size:11px}
   @media (max-width:1000px){.sb-grid{grid-template-columns:repeat(2,1fr)}}
   @media (max-width:560px){.sb-grid{grid-template-columns:1fr}}
 
@@ -226,7 +226,7 @@
   /* animatic player */
   .player{position:fixed;inset:0;background:#0C0F10;z-index:35;display:flex;flex-direction:column}
   .pl-stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:14px}
-  .pl-frame{position:relative;width:min(96vw,calc((100vh - 150px)*16/9));aspect-ratio:16/9;background:#000;border:1px solid #3A403C;overflow:hidden}
+  .pl-frame{position:relative;width:min(96vw,calc((100vh - 150px)*var(--ar,1.778)));aspect-ratio:var(--ar,16/9);background:#000;border:1px solid #3A403C;overflow:hidden}
   .pl-frame img,.pl-frame svg{width:100%;height:100%;object-fit:contain;display:block}
   .pl-card{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#79837E}
   .pl-card .big{font-family:var(--disp);font-size:clamp(30px,6vw,64px);font-weight:600;color:#DFE2DC;letter-spacing:.04em;text-transform:uppercase}
@@ -358,6 +358,27 @@ const KIT={
   mirror:{g:"Set",label:"Mirror",w:90,h:10,kind:"prop",fill:"#C8D6D2"}
 };
 const PLAN_W=1600,PLAN_H=1000;
+const RATIOS=[
+  {k:"2.39",label:"2.39:1 scope",v:2.39},
+  {k:"2.35",label:"2.35:1",v:2.35},
+  {k:"2.00",label:"2.00:1",v:2.00},
+  {k:"1.85",label:"1.85:1",v:1.85},
+  {k:"1.78",label:"16:9",v:16/9},
+  {k:"1.66",label:"1.66:1",v:1.66},
+  {k:"1.50",label:"3:2",v:1.5},
+  {k:"1.37",label:"1.37:1 Academy",v:1.37},
+  {k:"1.33",label:"4:3",v:4/3},
+  {k:"1.00",label:"1:1",v:1}
+];
+function ratioOf(sc){
+  const r=RATIOS.find(x=>x.k===(sc&&sc.ratio));
+  return r?r.v:16/9;
+}
+function ratioLabel(sc){
+  const r=RATIOS.find(x=>x.k===(sc&&sc.ratio));
+  return r?r.label:"16:9";
+}
+function curScene(){return P&&P.scenes?P.scenes[active]:null;}
 
 /* ================= storyboard library =================
    Every asset drawn centered at 0,0, roughly 100 units tall. */
@@ -398,7 +419,9 @@ const LIB={
   arrowCurve:{g:"Marks",label:"Pan arrow",d:'<path d="M-32 14 Q0 -26 30 6 M30 6 L26 -10 M30 6 L14 8" stroke="INKFILL" stroke-width="6" fill="none"/>'},
   caption:{g:"Marks",label:"Caption",d:'',text:true}
 };
-const BW=960,BH=540;
+const BW=960;
+function bh(){return Math.round(BW/ratioOf(curScene()));}
+let BH=540;
 
 /* ================= state ================= */
 const IDX_KEY="lensrail:index:v3";
@@ -410,7 +433,7 @@ let boardShot=null,boardSel=null,lensScope="scene",player=null;
 const uid=()=>Math.random().toString(36).slice(2,9);
 const room=()=>Math.random().toString(36).slice(2,6).toUpperCase()+"-"+Math.random().toString(36).slice(2,6).toUpperCase();
 function newShot(o={}){return Object.assign({id:uid(),desc:"",size:"MS",angle:"Eye",move:"Static",lens:35,sq:1,stop:"2.8",dist:2.5,fps:25,filter:"",mins:15,sec:3,iso:800,wb:5600,shutter:"1/50",match:"",done:false,img:null,vid:null,vin:0,vout:0,opts:[],fx:{bw:false,flip:false},board:null},o);}
-function newScene(n){return{id:uid(),name:n||"1 — INT. ROOM — NIGHT",shots:[newShot()],plan:[]};}
+function newScene(n){return{id:uid(),name:n||"1 — INT. ROOM — NIGHT",ratio:"1.78",shots:[newShot()],plan:[]};}
 function newProject(t){return{id:uid(),title:t||"Untitled film",camera:"",format:"ff",kit:"18, 25, 35, 50, 85",shared:false,room:null,ts:Date.now(),scenes:[newScene()]};}
 
 /* ================= storage + sync ================= */
@@ -933,6 +956,7 @@ function boardMarkup(board,withSel){
 function boardSVGString(board){
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+BW+' '+BH+'">'+boardMarkup(board,false)+'</svg>';
 }
+function boardAR(){return BW/BH;}
 function svgToPNG(str,w,h){
   return new Promise(res=>{
     const im=new Image();
@@ -946,6 +970,7 @@ function svgToPNG(str,w,h){
 
 /* ---------- storyboard modal ---------- */
 function openBoard(shot){
+  BH=bh();
   boardShot=shot;
   if(!shot.board)shot.board={bg:"day",thirds:true,items:[]};
   boardSel=null;
@@ -1112,7 +1137,7 @@ function renderTabs(){
     t.appendChild(b);
   });
   const add=el("button","tab add","+ Scene");
-  add.onclick=()=>{P.scenes.push({id:uid(),name:(P.scenes.length+1)+" — INT. ",shots:[],plan:[]});active=P.scenes.length-1;mode="shots";save();render();};
+  add.onclick=()=>{P.scenes.push({id:uid(),name:(P.scenes.length+1)+" — INT. ",ratio:(curScene()&&curScene().ratio)||"1.78",shots:[],plan:[]});active=P.scenes.length-1;mode="shots";save();render();};
   t.appendChild(add);
 }
 function selField(label,val,opts,on){
@@ -1290,6 +1315,11 @@ function renderSceneBar(){
     const t=el("button",mode===k?"on":"",l);t.onclick=()=>{mode=k;selItem=null;render();};modes.appendChild(t);
   });
   b.appendChild(modes);
+  const rf=el("div","field");rf.appendChild(el("label",null,"Aspect"));
+  const rsel=el("select");
+  RATIOS.forEach(r=>{const o=el("option",null,r.label);o.value=r.k;if((sc.ratio||"1.78")===r.k)o.selected=true;rsel.appendChild(o);});
+  rsel.onchange=e=>{sc.ratio=e.target.value;save();render();};
+  rf.appendChild(rsel);b.appendChild(rf);
   if(mode==="shots"||mode==="board"){
     const add=el("button",null,"+ Shot");
     add.onclick=()=>{const last=sc.shots[sc.shots.length-1];sc.shots.push(newShot(last?{lens:last.lens,stop:last.stop,dist:last.dist,fps:last.fps}:{}));save();render();};
@@ -1422,6 +1452,7 @@ function lensOptions(s){
   return box;
 }
 function renderSheet(){
+  BH=bh();
   const sc=P.scenes[active],body=$("#body");body.innerHTML="";
   const grid=el("div","sb-grid");
   const list=lensFilter?sc.shots.filter(x=>+x.lens===lensFilter):sc.shots;
@@ -1664,6 +1695,7 @@ function togglePlay(){
 }
 async function showShot(i){
   if(!player)return;
+  BH=Math.round(BW/ratioOf(player.list[i].scene));
   const o=player.list[i],s=o.shot;
   const f=$("#pl-frame");if(!f)return;
   let inner="";
@@ -1701,6 +1733,8 @@ async function showShot(i){
       '<div class="sub" style="max-width:70%;text-align:center;text-transform:none;letter-spacing:.02em">'+
       String(s.desc||"No frame drawn yet").replace(/&/g,"&amp;").replace(/</g,"&lt;")+'</div></div>';
   }
+  const pf=$("#pl-frame");
+  if(pf)pf.style.setProperty("--ar",String(ratioOf(o.scene)));
   const cap='<div class="pl-cap"><b>'+(i+1)+' / '+player.list.length+'</b>'+
     '<span>'+s.size+' · '+s.lens+'mm'+((+s.sq||1)!==1?' ×'+s.sq:'')+' · T'+s.stop+'</span>'+
     '<span class="dim">'+s.angle+' · '+s.move+(s.filter?' · '+s.filter:'')+'</span>'+
@@ -1742,7 +1776,7 @@ function csv(){
   const rows=[["Scene","Slot","Size","Angle","Move","Lens mm","T-stop","Dist m","H AoV","DoF near","DoF far","FPS","Filter","Set-up min","Shot?","Frame","Description"]];
   allShots().forEach(o=>{
     const s=o.shot,D=dof(+s.lens,s.stop,+s.dist);
-    rows.push([o.scene.name,o.scene.shots.indexOf(s)+1,s.size,s.angle,s.move,s.lens,"T"+s.stop,s.dist,
+    rows.push([o.scene.name+" ["+ratioLabel(o.scene)+"]",o.scene.shots.indexOf(s)+1,s.size,s.angle,s.move,s.lens,"T"+s.stop,s.dist,
       aov(+s.lens).h.toFixed(1)+"deg",m(D.near),D.far===Infinity?"inf":m(D.far),s.fps,s.filter,s.mins,s.done?"yes":"no",(fxOf(s).bw?"b&w ":"")+(fxOf(s).flip?"flipped ":"")+(s.vid?("clip "+(s.vin||0)+"-"+(s.vout||0)+"s"):(s.img?"photo":(s.board&&s.board.items.length?"board":""))),s.desc]);
   });
   P.scenes.forEach(sc=>(sc.plan||[]).forEach(it=>{
@@ -1770,10 +1804,32 @@ function videoFrame(src,at){
     v.src=src;
   });
 }
-async function shotThumb(s){
-  if(s.vid){const d=await fetchImage(s.vid);const fr=d?await videoFrame(d,+s.vin||0):null;return fr?await bakeFX(fr,s):null;}
-  if(s.img){const d=await fetchImage(s.img);return d?await bakeFX(d,s):null;}
-  if(s.board&&s.board.items.length)return svgToPNG(boardSVGString(s.board),480,270);
+function cropToRatio(dataURL,ar){
+  return new Promise(res=>{
+    const im=new Image();im.crossOrigin="anonymous";
+    im.onload=()=>{
+      try{
+        const W=640,H=Math.round(W/ar);
+        const c=document.createElement("canvas");c.width=W;c.height=H;
+        const x=c.getContext("2d");x.fillStyle="#000";x.fillRect(0,0,W,H);
+        const sAR=im.width/im.height;
+        let sw=im.width,sh=im.height,sx=0,sy=0;
+        if(sAR>ar){sw=im.height*ar;sx=(im.width-sw)/2;}
+        else{sh=im.width/ar;sy=(im.height-sh)/2;}
+        x.drawImage(im,sx,sy,sw,sh,0,0,W,H);
+        res(c.toDataURL("image/jpeg",.85));
+      }catch(e){res(dataURL);}
+    };
+    im.onerror=()=>res(dataURL);
+    im.src=dataURL;
+  });
+}
+async function shotThumb(s,sc){
+  const ar=ratioOf(sc);
+  if(s.vid){const d=await fetchImage(s.vid);const fr=d?await videoFrame(d,+s.vin||0):null;
+    return fr?await cropToRatio(await bakeFX(fr,s),ar):null;}
+  if(s.img){const d=await fetchImage(s.img);return d?await cropToRatio(await bakeFX(d,s),ar):null;}
+  if(s.board&&s.board.items.length)return svgToPNG(boardSVGString(s.board),480,Math.round(480/ratioOf(sc)));
   return null;
 }
 function planPNG(sc){
@@ -1821,7 +1877,7 @@ async function exportPDF(){
 
     for(let i=0;i<sc.shots.length;i++){
       const s=sc.shots[i],D=dof(+s.lens,s.stop,+s.dist),a=aovShot(s);
-      const thumb=await shotThumb(s);
+      const thumb=await shotThumb(s,sc);
       const blockH=thumb?38:20;
       checkPage(blockH+6);
       const y0=y;
@@ -1845,12 +1901,14 @@ async function exportPDF(){
     if(framed.length){
       doc.addPage();y=MARG;
       doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(20,24,26);
-      doc.text("STORYBOARD — "+sc.name.toUpperCase(),MARG,y+2);y+=10;
-      const colW=(CW-6)/2, frH=colW*9/16, capH=15, rowH=5+frH+capH+7;
+      doc.text("STORYBOARD — "+sc.name.toUpperCase()+"   ["+ratioLabel(sc)+"]",MARG,y+2);y+=10;
+      const AR=ratioOf(sc);
+      const colW=(CW-6)/2, frH=colW/AR, capH=15, rowH=5+frH+capH+7;
       for(let i=0;i<sc.shots.length;i++){
         const s2=sc.shots[i];
-        const thumb=await shotThumb(s2);
-        const col=i%2, row=Math.floor(i/2)%3;
+        const thumb=await shotThumb(s2,sc);
+        const perCol=Math.max(1,Math.floor((283-MARG-10)/rowH));
+        const col=i%2, row=Math.floor(i/2)%perCol;
         if(col===0&&row===0&&i>0){doc.addPage();y=MARG;}
         const x0=MARG+col*(colW+6), y0=y+row*rowH;
         doc.setFontSize(7.5);doc.setFont("helvetica","normal");doc.setTextColor(121,131,126);
@@ -1866,7 +1924,7 @@ async function exportPDF(){
         doc.text(doc.splitTextToSize(s2.desc||"",colW-4).slice(0,3),x0+2,y0+5+frH+7);
         doc.setFontSize(6.5);doc.setTextColor(121,131,126);
         doc.text(s2.size+" · "+s2.lens+"mm"+((+s2.sq||1)!==1?" x"+s2.sq:"")+" · T"+s2.stop+" · "+s2.move,x0+2,y0+5+frH+capH-1);
-        if(col===1&&row===2&&i<sc.shots.length-1){doc.addPage();y=MARG;}
+        if(col===1&&row===perCol-1&&i<sc.shots.length-1){doc.addPage();y=MARG;}
       }
       y=283;
     }
@@ -1969,6 +2027,8 @@ function renderHead(){
   f.value=P.format;
 }
 function render(){
+  const sc0=curScene();
+  document.documentElement.style.setProperty("--ar",sc0?String(ratioOf(sc0)):"1.778");
   renderHead();renderProjBar();renderRail();renderTabs();renderSceneBar();
   if(mode==="lens")renderLens();else if(mode==="plan")renderPlan();else if(mode==="board")renderSheet();else renderShots();
   renderStats();
